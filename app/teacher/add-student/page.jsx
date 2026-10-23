@@ -1,52 +1,44 @@
 "use client";
-import { useState } from "react";
-import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { useState, useEffect } from "react";
 
-export default function AddStudent() {
-  const [name, setName] = useState("");
-  const [className, setClassName] = useState("");
-  const [rollNo, setRollNo] = useState("");
-  const [msg, setMsg] = useState("");
+export default function AttendancePage() {
+  const [className, setClassName] = useState("10th A");
+  const [students, setStudents] = useState([]);
+  const [attendance, setAttendance] = useState({});
 
-  const handleAdd = async () => {
-    if (!name || !className || !rollNo) {
-      setMsg("Sab field bharo!");
-      return;
-    }
-    try {
-      await addDoc(collection(db, "students"), {
-        name,
-        class: className,
-        rollNo,
-        createdAt: serverTimestamp(),
-      });
-      setMsg(`✅ ${name} add ho gaya!`);
-      setName(""); setRollNo("");
-    } catch (e) {
-      setMsg("Error: " + e.message);
-    }
+  const loadStudents = () => {
+    const all = JSON.parse(localStorage.getItem("students") || "[]");
+    const filtered = all.filter(s => s.class === className);
+    setStudents(filtered);
+    const def = {}; filtered.forEach(s => def[s.id] = "Present"); setAttendance(def);
+  };
+
+  useEffect(() => { loadStudents(); }, [className]);
+
+  const toggle = (id) => setAttendance(p => ({ ...p, [id]: p[id] === "Present" ? "Absent" : "Present" }));
+
+  const save = () => {
+    const today = new Date().toISOString().split("T")[0];
+    localStorage.setItem(`attendance_${today}`, JSON.stringify({ date: today, class: className, students, attendance }));
+    alert(`✅ Save ho gaya! Present: ${Object.values(attendance).filter(v => v === "Present").length}`);
   };
 
   return (
-    <div style={{ padding: "20px", maxWidth: "500px", margin: "auto" }}>
-      <h1 style={{ fontSize: "24px", fontWeight: "bold" }}>Student Add Karo</h1>
-      <p>Infinite students add kar sakte ho</p>
-      
-      <input style={{ width: "100%", padding: "10px", marginTop: "10px", border: "1px solid #ccc" }} 
-        placeholder="Student Name" value={name} onChange={e => setName(e.target.value)} />
-      
-      <input style={{ width: "100%", padding: "10px", marginTop: "10px", border: "1px solid #ccc" }} 
-        placeholder="Class - jaise 10th A" value={className} onChange={e => setClassName(e.target.value)} />
-      
-      <input style={{ width: "100%", padding: "10px", marginTop: "10px", border: "1px solid #ccc" }} 
-        placeholder="Roll No" value={rollNo} onChange={e => setRollNo(e.target.value)} />
-
-      <button onClick={handleAdd} style={{ width: "100%", padding: "12px", marginTop: "15px", background: "black", color: "white", borderRadius: "8px" }}>
-        Add Student
-      </button>
-
-      {msg && <p style={{ marginTop: "15px", fontWeight: "bold" }}>{msg}</p>}
+    <div style={{ padding: "20px", maxWidth: "700px", margin: "auto" }}>
+      <h1 style={{ fontSize: "24px", fontWeight: "bold" }}>C - Manual Attendance</h1>
+      <div style={{ marginTop: "15px", display: "flex", gap: "10px" }}>
+        <input style={{ padding: "10px", border: "1px solid #ccc", flex: 1 }} value={className} onChange={e => setClassName(e.target.value)} />
+        <button onClick={loadStudents} style={{ padding: "10px 20px", background: "#eee", borderRadius: "8px" }}>Load</button>
+      </div>
+      <div style={{ marginTop: "20px" }}>
+        {students.map(s => (
+          <div key={s.id} style={{ display: "flex", justifyContent: "space-between", padding: "12px", borderBottom: "1px solid #eee" }}>
+            <span>{s.name} (Roll: {s.rollNo})</span>
+            <button onClick={() => toggle(s.id)} style={{ padding: "5px 15px", borderRadius: "20px", background: attendance[s.id] === "Present" ? "#22c55e" : "#ef4444", color: "white" }}>{attendance[s.id]}</button>
+          </div>
+        ))}
+      </div>
+      {students.length > 0 && <button onClick={save} style={{ width: "100%", padding: "14px", marginTop: "20px", background: "black", color: "white", borderRadius: "8px" }}>Save Attendance ({students.length})</button>}
     </div>
   );
 }
